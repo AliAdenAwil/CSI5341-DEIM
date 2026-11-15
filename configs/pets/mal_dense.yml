@@ -1,0 +1,4 @@
+# Arm: MAL + Dense O2O on (the unmodified DEIM recipe).
+__include__: ['../deim_dfine/deim_hgnetv2_n_pets.yml']
+
+output_dir: ./outputs/pets/mal_dense

@@ -1,0 +1,13 @@
+# Arm: MAL + Dense O2O off.
+__include__: ['../deim_dfine/deim_hgnetv2_n_pets.yml']
+
+output_dir: ./outputs/pets/mal_plain
+
+# Dense O2O off: mosaic and mixup never fire. The ops list and the epoch policy are untouched,
+# so every other augmentation follows the same schedule as the Dense O2O arms.
+train_dataloader:
+  dataset:
+    transforms:
+      mosaic_prob: 0.0
+  collate_fn:
+    mixup_prob: 0.0
