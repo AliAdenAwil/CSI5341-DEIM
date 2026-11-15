@@ -1,0 +1,40 @@
+task: detection
+
+evaluator:
+  type: CocoEvaluator
+  iou_types: ['bbox', ]
+
+# Oxford-IIIT Pet, 37 breeds; JSONs from tools/pets_to_coco.py.
+# category_id is 0-based (0..36) and used directly as the label because remapping is off.
+num_classes: 37
+remap_mscoco_category: False
+
+# No `transforms:` here on purpose: this file is included after the DEIM base configs,
+# and `transforms: {ops: ~}` would overwrite their augmentation pipeline with nothing.
+
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: ./data/oxford_pets/images/
+    ann_file: ./data/oxford_pets/coco/train.json
+    return_masks: False
+  shuffle: True
+  num_workers: 4
+  drop_last: True
+  collate_fn:
+    type: BatchImageCollateFunction
+
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: ./data/oxford_pets/images/
+    ann_file: ./data/oxford_pets/coco/val.json
+    return_masks: False
+  shuffle: False
+  num_workers: 4
+  drop_last: False
+  collate_fn:
+    type: BatchImageCollateFunction

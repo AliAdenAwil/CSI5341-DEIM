@@ -1,0 +1,31 @@
+__include__: [
+  './deim_hgnetv2_n_coco.yml',
+  '../dataset/pets_detection.yml',
+]
+
+# Fine-tune from the released COCO checkpoint:
+#   python train.py -c configs/deim_dfine/deim_hgnetv2_n_pets.yml -t weights/deim_dfine_hgnetv2_n_coco_160e.pth
+output_dir: ./outputs/deim_hgnetv2_n_pets
+
+# Placeholder schedule (the base DEIM 1x ratios from configs/base/deim.yml); revisit after the pilot.
+epoches: 58 # 50 + 8
+flat_epoch: 29
+no_aug_epoch: 8
+
+train_dataloader:
+  total_batch_size: 16
+  dataset:
+    transforms:
+      policy:
+        epoch: [4, 29, 50]
+  collate_fn:
+    mixup_epochs: [4, 29]
+    stop_epoch: 50
+    base_size_repeat: ~
+
+val_dataloader:
+  total_batch_size: 32
+
+DEIMCriterion:
+  # Per-epoch CSV of final-decoder-layer Hungarian match IoUs (match_iou.csv in output_dir).
+  log_match_iou: False
