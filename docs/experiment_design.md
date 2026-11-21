@@ -2,7 +2,7 @@
 
 **Question.** DEIM [Huang et al., CVPR 2025] argues that its Matchability-Aware Loss (MAL) is needed because Dense O2O (mosaic + mixup) creates many low-quality matches. Does that premise still hold when a COCO-pretrained DEIM-N is fine-tuned on a small dataset?
 
-This file fixes the formulation before any main run. The analysis script (`tools/analyze_runs.py`) implements it as written here.
+I fixed this formulation before any main run, and the analysis script (`tools/analyze_runs.py`) implements it as written here.
 
 ## 1. Factors and arms
 
