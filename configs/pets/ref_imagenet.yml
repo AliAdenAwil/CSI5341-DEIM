@@ -1,0 +1,9 @@
+# Reference run for sanity check (a): same as mal_dense but started WITHOUT the COCO checkpoint
+# (run train.py with no -t, so only the ImageNet-pretrained HGNetv2 backbone is loaded).
+# It stops after the Dense O2O window (epochs 4-28). The learning rate is flat until
+# flat_epoch = 29, so up to that point the schedule is identical to the full-length arms.
+__include__: ['../deim_dfine/deim_hgnetv2_n_pets.yml']
+
+output_dir: ./outputs/pets/ref_imagenet
+
+epoches: 29

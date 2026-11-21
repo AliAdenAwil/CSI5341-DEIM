@@ -3,14 +3,42 @@ __include__: [
   '../dataset/pets_detection.yml',
 ]
 
+# Shared base for every arm of the Oxford-IIIT Pet study (see docs/experiment_design.md).
+# The arm configs in configs/pets/ change only the loss and the Dense O2O switches.
+#
 # Fine-tune from the released COCO checkpoint:
-#   python train.py -c configs/deim_dfine/deim_hgnetv2_n_pets.yml -t weights/deim_dfine_hgnetv2_n_coco_160e.pth
+#   python train.py -c configs/pets/mal_dense.yml -t weights/deim_dfine_hgnetv2_n_coco_160e.pth --seed 0
 output_dir: ./outputs/deim_hgnetv2_n_pets
 
-# Placeholder schedule (the base DEIM 1x ratios from configs/base/deim.yml); revisit after the pilot.
+# Schedule: the DEIM 1x ratios from configs/base/deim.yml.
+#   epochs 0-3 no strong aug | 4-28 Dense O2O window | 29-49 standard aug | 50-57 no aug
 epoches: 58 # 50 + 8
 flat_epoch: 29
 no_aug_epoch: 8
+
+# COCO uses 2000 warmup iterations at ~924 it/epoch (about 2 epochs).
+# Here: 2937 images / batch 16 = 183 it/epoch, so 2 epochs = 366 iterations.
+warmup_iter: 366
+
+# Learning rate scaled linearly from the COCO setting (0.0008 / backbone 0.0004 at batch 128)
+# to batch 16: x 16/128. Fixed by rule, not tuned, so it cannot favour an arm.
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.00005
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
 
 train_dataloader:
   total_batch_size: 16
@@ -28,4 +56,4 @@ val_dataloader:
 
 DEIMCriterion:
   # Per-epoch CSV of final-decoder-layer Hungarian match IoUs (match_iou.csv in output_dir).
-  log_match_iou: False
+  log_match_iou: True

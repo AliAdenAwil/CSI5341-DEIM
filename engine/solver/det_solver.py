@@ -9,6 +9,7 @@ Copyright (c) 2024 D-FINE authors. All Rights Reserved.
 import time
 import json
 import datetime
+from pathlib import Path
 
 import torch
 
@@ -73,6 +74,9 @@ class DetSolver(BaseSolver):
                 self.ema.decay = self.train_dataloader.collate_fn.ema_restart_decay
                 print(f'Refresh EMA at epoch {epoch} with decay {self.ema.decay}')
 
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+            epoch_start = time.time()
             train_stats = train_one_epoch(
                 self.self_lr_scheduler,
                 self.lr_scheduler,
@@ -89,6 +93,8 @@ class DetSolver(BaseSolver):
                 lr_warmup_scheduler=self.lr_warmup_scheduler,
                 writer=self.writer
             )
+            train_time = time.time() - epoch_start
+            peak_mem_mb = torch.cuda.max_memory_allocated() / 1024 ** 2 if torch.cuda.is_available() else 0.
 
             if getattr(self.criterion, 'log_match_iou', False):
                 self.criterion.flush_match_iou(epoch, self.output_dir / 'match_iou.csv', *self.dense_o2o_schedule(epoch))
@@ -162,6 +168,8 @@ class DetSolver(BaseSolver):
                 **{f'train_{k}': v for k, v in train_stats.items()},
                 **{f'test_{k}': v for k, v in test_stats.items()},
                 'epoch': epoch,
+                'train_time_s': train_time,
+                'peak_gpu_mem_mb': peak_mem_mb,
                 'n_parameters': n_parameters
             }
 
@@ -205,5 +213,16 @@ class DetSolver(BaseSolver):
 
         if self.output_dir:
             dist_utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, self.output_dir / "eval.pth")
+
+            # Named metrics as JSON, one file per annotation file (eval_val.json, eval_test.json, ...)
+            if dist_utils.is_main_process() and 'coco_eval_bbox' in test_stats:
+                ann_file = self.cfg.yaml_cfg['val_dataloader']['dataset']['ann_file']
+                names = ['AP', 'AP50', 'AP75', 'AP_S', 'AP_M', 'AP_L']
+                result = dict(zip(names, test_stats['coco_eval_bbox'][:6]))
+                result.update(ann_file=ann_file, checkpoint=str(self.cfg.resume), epoch=self.last_epoch)
+                split = Path(ann_file).stem
+                with (self.output_dir / f'eval_{split}.json').open('w') as f:
+                    json.dump(result, f, indent=2)
+                print(f'Saved eval_{split}.json: {result}')
 
         return

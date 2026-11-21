@@ -137,5 +137,5 @@ dmypy.json
 *.html
 .DS_Store
 # local datasets and run outputs
-data/
-outputs/
+/data/
+/outputs/

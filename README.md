@@ -1,3 +1,57 @@
+# CSI5341 project: does MAL have anything to fix in small-data fine-tuning?
+
+**CSI5341 Computer Vision, University of Ottawa, Fall 2026. Group 16: Ali Aden Awil**
+
+This repository is built on the official [DEIM code](https://github.com/Intellindust-AI-Lab/DEIM) (Apache 2.0) by Huang et al., *"DEIM: DETR with Improved Matching for Fast Convergence"*, CVPR 2025. Everything below the line further down is the original DEIM README. Our project code is listed in this section; all other files are unchanged DEIM code.
+
+**Question.** DEIM's Matchability-Aware Loss (MAL) is motivated by the claim that Dense O2O (mosaic + mixup) creates many low-quality matches. We test whether that still holds when a COCO-pretrained DEIM-N is fine-tuned on Oxford-IIIT Pet, using a 2×2 ablation of {VFL, MAL} × {Dense O2O off, on} plus an ImageNet-initialised reference run. The full formulation and decision rule are in [docs/experiment_design.md](docs/experiment_design.md).
+
+### What we added or changed
+
+**New files (ours)**
+
+| File | Purpose |
+|---|---|
+| `tools/pets_to_coco.py` | Converts Oxford-IIIT Pet to COCO JSON with an 80/10/10 split, stratified by breed (seed 0) |
+| `configs/dataset/pets_detection.yml` | Dataset config (37 breeds) |
+| `configs/deim_dfine/deim_hgnetv2_n_pets.yml` | Shared base for all arms: schedule, scaled learning rate and warmup |
+| `configs/pets/*.yml` | The five arms: `mal_dense`, `vfl_dense`, `mal_plain`, `vfl_plain`, `ref_imagenet` |
+| `tools/analyze_runs.py` | Aggregates runs, applies the decision rule, computes paired MAL − VFL intervals, draws figures |
+| `tools/colab_setup.sh`, `notebooks/colab_run.ipynb` | Colab setup and runner (single runs or a queue) |
+| `docs/experiment_design.md` | Experimental design, measurements and decision rule |
+
+**Modified DEIM files**
+
+| File | Change |
+|---|---|
+| `engine/deim/deim_criterion.py` | Read-only hook that logs the IoU of every final-decoder-layer Hungarian match per epoch to `match_iou.csv` (`log_match_iou`, off by default; no effect on training) |
+| `engine/solver/det_solver.py` | Writes that CSV each epoch; logs training time and peak GPU memory per epoch; `--test-only` also saves named metrics to `eval_<split>.json` |
+| `engine/data/transforms/_transforms.py` | Compatibility aliases for torchvision ≥ 0.21 |
+
+The exact changes can be reviewed with:
+
+```shell
+git remote add upstream https://github.com/Intellindust-AI-Lab/DEIM.git
+git fetch upstream
+git diff upstream/main -- engine/ configs/ tools/
+```
+
+### Reproducing
+
+1. Download the official Oxford-IIIT Pet `images.tar.gz` and `annotations.tar.gz`, unpack both into `data/oxford_pets/`, then run `python tools/pets_to_coco.py --root data/oxford_pets`.
+2. Download the DEIM-N COCO checkpoint (`deim_dfine_hgnetv2_n_coco_160e.pth`, linked in the model zoo below) into `weights/`.
+3. Train one arm and seed, then evaluate the best checkpoint on the test split:
+
+   ```shell
+   python train.py -c configs/pets/mal_dense.yml -t weights/deim_dfine_hgnetv2_n_coco_160e.pth --seed 0 --use-amp --output-dir outputs/mal_dense_s0
+   python train.py -c configs/pets/mal_dense.yml -r outputs/mal_dense_s0/best_stg2.pth --test-only --output-dir outputs/mal_dense_s0 -u val_dataloader.dataset.ann_file=./data/oxford_pets/coco/test.json
+   ```
+
+   The `ref_imagenet` arm is run without `-t`. On Colab, `notebooks/colab_run.ipynb` does all of this.
+4. Aggregate: `python tools/analyze_runs.py --root outputs`
+
+---
+
 <h2 align="center">
   DEIM: DETR with Improved Matching for Fast Convergence
 </h2>
